@@ -112,7 +112,17 @@
 		});
 	};
 
-	const executePythonAsWorker = async (id, code, cb) => {
+	const normalizeWebuiName = (name) => {
+		const suffix = ' (Open WebUI)';
+
+		if (typeof name !== 'string' || !name.length) {
+			return name;
+		}
+
+		return name.endsWith(suffix) ? name.slice(0, -suffix.length) : name;
+	};
+
+        const executePythonAsWorker = async (id, code, cb) => {
 		let result = null;
 		let stdout = null;
 		let stderr = null;
@@ -290,13 +300,13 @@
 						});
 					}
 
-					if ($isLastActiveTab) {
-						if ($settings?.notificationEnabled ?? false) {
-							new Notification(`${title} • Open WebUI`, {
-								body: content,
-								icon: `${WEBUI_BASE_URL}/static/favicon.png`
-							});
-						}
+                                        if ($isLastActiveTab) {
+                                                if ($settings?.notificationEnabled ?? false) {
+                                                        new Notification(`${title} • ${$WEBUI_NAME}`, {
+                                                                body: content,
+                                                                icon: `${WEBUI_BASE_URL}/static/favicon.png`
+                                                        });
+                                                }
 					}
 
 					toast.custom(NotificationToast, {
@@ -438,15 +448,15 @@
 			const type = event?.data?.type ?? null;
 			const data = event?.data?.data ?? null;
 
-			if (type === 'message') {
-				if ($isLastActiveTab) {
-					if ($settings?.notificationEnabled ?? false) {
-						new Notification(`${data?.user?.name} (#${event?.channel?.name}) • Open WebUI`, {
-							body: data?.content,
-							icon: data?.user?.profile_image_url ?? `${WEBUI_BASE_URL}/static/favicon.png`
-						});
-					}
-				}
+                        if (type === 'message') {
+                                if ($isLastActiveTab) {
+                                        if ($settings?.notificationEnabled ?? false) {
+                                                new Notification(`${data?.user?.name} (#${event?.channel?.name}) • ${$WEBUI_NAME}`, {
+                                                        body: data?.content,
+                                                        icon: data?.user?.profile_image_url ?? `${WEBUI_BASE_URL}/static/favicon.png`
+                                                });
+                                        }
+                                }
 
 				toast.custom(NotificationToast, {
 					componentProps: {
@@ -617,7 +627,7 @@
 		if (backendConfig) {
 			// Save Backend Status to Store
 			await config.set(backendConfig);
-			await WEBUI_NAME.set(backendConfig.name);
+                        await WEBUI_NAME.set(normalizeWebuiName(backendConfig.name));
 
 			if ($config) {
 				await setupSocket($config.features?.enable_websocket ?? true);
