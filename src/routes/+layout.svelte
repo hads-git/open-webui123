@@ -31,21 +31,22 @@
 	import { page } from '$app/stores';
 	import { Toaster, toast } from 'svelte-sonner';
 
-	import { executeToolServer, getBackendConfig } from '$lib/apis';
-	import { getSessionUser, userSignOut } from '$lib/apis/auths';
+        import { executeToolServer, getBackendConfig } from '$lib/apis';
+        import { getSessionUser, userSignOut } from '$lib/apis/auths';
 
 	import '../tailwind.css';
 	import '../app.css';
 
 	import 'tippy.js/dist/tippy.css';
 
-	import { WEBUI_BASE_URL, WEBUI_HOSTNAME } from '$lib/constants';
-	import i18n, { initI18n, getLanguages, changeLanguage } from '$lib/i18n';
-	import { bestMatchingLanguage } from '$lib/utils';
-	import { getAllTags, getChatList } from '$lib/apis/chats';
-	import NotificationToast from '$lib/components/NotificationToast.svelte';
-	import AppSidebar from '$lib/components/app/AppSidebar.svelte';
-	import { chatCompletion } from '$lib/apis/openai';
+        import { APP_NAME, WEBUI_BASE_URL, WEBUI_HOSTNAME } from '$lib/constants';
+        import i18n, { initI18n, getLanguages, changeLanguage } from '$lib/i18n';
+        import { bestMatchingLanguage } from '$lib/utils';
+        import { getAllTags, getChatList } from '$lib/apis/chats';
+        import NotificationToast from '$lib/components/NotificationToast.svelte';
+        import AppSidebar from '$lib/components/app/AppSidebar.svelte';
+        import { chatCompletion } from '$lib/apis/openai';
+        import { normalizeWebuiName } from '$lib/utils/normalize-webui-name';
 
 	import { beforeNavigate } from '$app/navigation';
 	import { updated } from '$app/state';
@@ -110,16 +111,6 @@
 				console.log('Additional details:', details);
 			}
 		});
-	};
-
-	const normalizeWebuiName = (name) => {
-		const suffix = ' (Open WebUI)';
-
-		if (typeof name !== 'string' || !name.length) {
-			return name;
-		}
-
-		return name.endsWith(suffix) ? name.slice(0, -suffix.length) : name;
 	};
 
         const executePythonAsWorker = async (id, code, cb) => {
@@ -624,10 +615,13 @@
 			changeLanguage(lang);
 		}
 
-		if (backendConfig) {
-			// Save Backend Status to Store
-			await config.set(backendConfig);
-                        await WEBUI_NAME.set(normalizeWebuiName(backendConfig.name));
+                if (backendConfig) {
+                        const sanitizedName =
+                                normalizeWebuiName(backendConfig.name) ?? backendConfig.name ?? APP_NAME;
+
+                        // Save Backend Status to Store
+                        await config.set({ ...backendConfig, name: sanitizedName });
+                        await WEBUI_NAME.set(sanitizedName ?? APP_NAME);
 
 			if ($config) {
 				await setupSocket($config.features?.enable_websocket ?? true);
@@ -642,10 +636,22 @@
 						return null;
 					});
 
-					if (sessionUser) {
-						await user.set(sessionUser);
-						await config.set(await getBackendConfig());
-					} else {
+                                        if (sessionUser) {
+                                                await user.set(sessionUser);
+                                                const refreshedConfig = await getBackendConfig();
+                                                const refreshedName =
+                                                        normalizeWebuiName(refreshedConfig?.name) ??
+                                                        refreshedConfig?.name ??
+                                                        APP_NAME;
+
+                                                if (refreshedConfig) {
+                                                        await config.set({ ...refreshedConfig, name: refreshedName });
+                                                } else {
+                                                        await config.set(refreshedConfig);
+                                                }
+
+                                                await WEBUI_NAME.set(refreshedName ?? APP_NAME);
+                                        } else {
 						// Redirect Invalid Session User to /auth Page
 						localStorage.removeItem('token');
 						await goto(`/auth?redirect=${encodedUrl}`);

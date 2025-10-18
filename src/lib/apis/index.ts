@@ -1,5 +1,6 @@
 import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 import { convertOpenApiToToolPayload } from '$lib/utils';
+import { normalizeWebuiName } from '$lib/utils/normalize-webui-name';
 import { getOpenAIModelsDirect } from './openai';
 
 import { parse } from 'yaml';
@@ -191,11 +192,25 @@ export const chatCompleted = async (token: string, body: ChatCompletedForm) => {
 			return null;
 		});
 
-	if (error) {
-		throw error;
-	}
+        if (error) {
+                throw error;
+        }
 
-	return res;
+        if (res && typeof res === 'object') {
+                const currentName = (res as { name?: string | null }).name;
+                const normalizedName = normalizeWebuiName(currentName ?? undefined);
+
+                return {
+                        ...(res as Record<string, unknown>),
+                        ...(normalizedName !== undefined
+                                ? { name: normalizedName }
+                                : currentName !== undefined
+                                  ? { name: currentName ?? undefined }
+                                  : {})
+                };
+        }
+
+        return res;
 };
 
 type ChatActionForm = {
